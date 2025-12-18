@@ -105,9 +105,9 @@ export default function WorkoutCard({ workout, selectedDay, data, save }) {
 
       {open && (
         <View style={styles.inputs}>
-          <TextInput placeholder="kg" value={kg} onChangeText={setKg} keyboardType="numeric" style={styles.input} />
-          <TextInput placeholder="sets" value={sets} onChangeText={setSets} keyboardType="numeric" style={styles.input} />
-          <TextInput placeholder="reps" value={reps} onChangeText={setReps} keyboardType="numeric" style={styles.input} />
+          <TextInput placeholder="kg" placeholderTextColor="#999" value={kg} onChangeText={setKg} keyboardType="numeric" style={styles.input} />
+          <TextInput placeholder="sets" placeholderTextColor="#999" value={sets} onChangeText={setSets} keyboardType="numeric" style={styles.input} />
+          <TextInput placeholder="reps" placeholderTextColor="#999" value={reps} onChangeText={setReps} keyboardType="numeric" style={styles.input} />
           <TouchableOpacity style={styles.saveBtn} onPress={addManual}>
             <Text style={styles.btnText}>SAVE</Text>
           </TouchableOpacity>

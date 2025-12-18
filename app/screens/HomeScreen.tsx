@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { SafeAreaView, View, Text, TextInput, TouchableOpacity, FlatList, Alert, StyleSheet, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import WorkoutCard from '../components/WorkoutCard';
-import ExerciseRow from '../components/ExerciseRow';
 
 const STORAGE_KEY = '@gymbro_data_v1';
 
