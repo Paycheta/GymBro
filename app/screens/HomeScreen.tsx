@@ -10,8 +10,11 @@ function uid(prefix = ''){ return prefix + Math.random().toString(36).slice(2,9)
 
 export default function HomeScreen(){
   const [data, setData] = useState({ days: [] });
-  const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedDayId, setSelectedDayId] = useState(null);
   const [workoutName, setWorkoutName] = useState('');
+
+  // ✅ derive selectedDay from data (IMPORTANT)
+  const selectedDay = data.days.find(d => d.id === selectedDayId) || null;
 
   useEffect(()=>{ load(); },[]);
 
@@ -38,13 +41,21 @@ export default function HomeScreen(){
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
   }
 
-  function selectDay(day){ setSelectedDay(day); }
-
   async function addWorkout(){
     if(!selectedDay) return Alert.alert('Select a day first');
     if(!workoutName.trim()) return Alert.alert('Workout name empty');
+
     const newWorkout = { id: uid('w'), name: workoutName.trim(), logs: [] };
-    const newData = { ...data, days: data.days.map(d => d.id===selectedDay.id ? {...d, workouts: [...d.workouts, newWorkout]} : d ) };
+
+    const newData = {
+      ...data,
+      days: data.days.map(d =>
+        d.id === selectedDay.id
+          ? { ...d, workouts: [...d.workouts, newWorkout] }
+          : d
+      )
+    };
+
     setWorkoutName('');
     await save(newData);
   }
@@ -54,10 +65,15 @@ export default function HomeScreen(){
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>GymBro — Starter</Text>
+
       <View style={styles.row}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex:1}}>
           {data.days.map(d => (
-            <TouchableOpacity key={d.id} style={[styles.dayBtn, selectedDay?.id===d.id && styles.dayBtnActive]} onPress={()=>selectDay(d)}>
+            <TouchableOpacity
+              key={d.id}
+              style={[styles.dayBtn, selectedDayId === d.id && styles.dayBtnActive]}
+              onPress={() => setSelectedDayId(d.id)}
+            >
               <Text style={styles.dayText}>{d.name}</Text>
             </TouchableOpacity>
           ))}
@@ -67,9 +83,18 @@ export default function HomeScreen(){
       {selectedDay ? (
         <View style={{flex:1}}>
           <Text style={styles.header}>Selected: {selectedDay.name}</Text>
+
           <View style={styles.addRow}>
-            <TextInput placeholder="New workout name" value={workoutName} onChangeText={setWorkoutName} style={styles.input} />
-            <TouchableOpacity onPress={addWorkout} style={styles.btn}><Text style={styles.btnText}>Add</Text></TouchableOpacity>
+            <TextInput
+              placeholder="New workout name"
+              placeholderTextColor="#999"
+              value={workoutName}
+              onChangeText={setWorkoutName}
+              style={styles.input}
+            />
+            <TouchableOpacity onPress={addWorkout} style={styles.btn}>
+              <Text style={styles.btnText}>Add</Text>
+            </TouchableOpacity>
           </View>
 
           <FlatList
@@ -77,7 +102,12 @@ export default function HomeScreen(){
             keyExtractor={i=>i.id}
             ListEmptyComponent={<Text style={{padding:10}}>No workouts yet</Text>}
             renderItem={({item: workout}) => (
-              <WorkoutCard workout={workout} selectedDay={selectedDay} data={data} setData={setData} save={save} />
+              <WorkoutCard
+                workout={workout}
+                selectedDay={selectedDay}
+                data={data}
+                save={save}
+              />
             )}
           />
         </View>
@@ -88,7 +118,9 @@ export default function HomeScreen(){
       )}
 
       <View style={{padding:6}}>
-        <TouchableOpacity onPress={()=>Alert.alert('Export data', exportText())} style={styles.exportBtn}><Text>Export JSON</Text></TouchableOpacity>
+        <TouchableOpacity onPress={()=>Alert.alert('Export data', exportText())} style={styles.exportBtn}>
+          <Text>Export JSON</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

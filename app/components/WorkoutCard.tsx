@@ -11,7 +11,25 @@ export default function WorkoutCard({ workout, selectedDay, data, save }) {
   const [sets, setSets] = useState('');
   const [reps, setReps] = useState('');
 
-  const lastLog = workout.logs?.[workout.logs.length - 1];
+  const lastLog = workout.logs?.[workout.logs.length - 1] || null;
+
+  function buildUpdatedData(newLog) {
+    return {
+      ...data,
+      days: data.days.map(day =>
+        day.id === selectedDay.id
+          ? {
+              ...day,
+              workouts: day.workouts.map(w =>
+                w.id === workout.id
+                  ? { ...w, logs: [...(w.logs || []), newLog] }
+                  : w
+              ),
+            }
+          : day
+      ),
+    };
+  }
 
   function repeatWorkout() {
     if (!lastLog) {
@@ -20,28 +38,14 @@ export default function WorkoutCard({ workout, selectedDay, data, save }) {
     }
 
     const newLog = {
-      ...lastLog,
       id: uid('l'),
+      kg: lastLog.kg,
+      sets: lastLog.sets,
+      reps: lastLog.reps,
       date: new Date().toISOString().slice(0, 10),
     };
 
-    const newData = {
-      ...data,
-      days: data.days.map(d =>
-        d.id === selectedDay.id
-          ? {
-              ...d,
-              workouts: d.workouts.map(w =>
-                w.id === workout.id
-                  ? { ...w, logs: [...(w.logs || []), newLog] }
-                  : w
-              ),
-            }
-          : d
-      ),
-    };
-
-    save(newData);
+    save(buildUpdatedData(newLog));
   }
 
   function addManual() {
@@ -58,27 +62,11 @@ export default function WorkoutCard({ workout, selectedDay, data, save }) {
       date: new Date().toISOString().slice(0, 10),
     };
 
-    const newData = {
-      ...data,
-      days: data.days.map(d =>
-        d.id === selectedDay.id
-          ? {
-              ...d,
-              workouts: d.workouts.map(w =>
-                w.id === workout.id
-                  ? { ...w, logs: [...(w.logs || []), newLog] }
-                  : w
-              ),
-            }
-          : d
-      ),
-    };
-
+    save(buildUpdatedData(newLog));
     setKg('');
     setSets('');
     setReps('');
     setOpen(false);
-    save(newData);
   }
 
   return (
@@ -98,16 +86,38 @@ export default function WorkoutCard({ workout, selectedDay, data, save }) {
           <Text style={styles.btnText}>REPEAT</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.addBtn} onPress={() => setOpen(!open)}>
+        <TouchableOpacity style={styles.addBtn} onPress={() => setOpen(o => !o)}>
           <Text style={styles.btnText}>ADD / EDIT</Text>
         </TouchableOpacity>
       </View>
 
       {open && (
         <View style={styles.inputs}>
-          <TextInput placeholder="kg" placeholderTextColor="#999" value={kg} onChangeText={setKg} keyboardType="numeric" style={styles.input} />
-          <TextInput placeholder="sets" placeholderTextColor="#999" value={sets} onChangeText={setSets} keyboardType="numeric" style={styles.input} />
-          <TextInput placeholder="reps" placeholderTextColor="#999" value={reps} onChangeText={setReps} keyboardType="numeric" style={styles.input} />
+          <TextInput
+            value={kg}
+            onChangeText={setKg}
+            keyboardType="numeric"
+            placeholder="kg"
+            placeholderTextColor="#999"
+            style={styles.input}
+          />
+          <TextInput
+            value={sets}
+            onChangeText={setSets}
+            keyboardType="numeric"
+            placeholder="sets"
+            placeholderTextColor="#999"
+            style={styles.input}
+          />
+          <TextInput
+            value={reps}
+            onChangeText={setReps}
+            keyboardType="numeric"
+            placeholder="reps"
+            placeholderTextColor="#999"
+            style={styles.input}
+          />
+
           <TouchableOpacity style={styles.saveBtn} onPress={addManual}>
             <Text style={styles.btnText}>SAVE</Text>
           </TouchableOpacity>
