@@ -44,7 +44,7 @@ export default function HomeScreen(){
   async function addWorkout(){
     if(!selectedDay) return Alert.alert('Select a day first');
     if(!workoutName.trim()) return Alert.alert('Workout name empty');
-    const newWorkout = { id: uid('w'), name: workoutName.trim(), exercises: [] };
+    const newWorkout = { id: uid('w'), name: workoutName.trim(), logs: [] };
     const newData = { ...data, days: data.days.map(d => d.id===selectedDay.id ? {...d, workouts: [...d.workouts, newWorkout]} : d ) };
     setWorkoutName('');
     await save(newData);
