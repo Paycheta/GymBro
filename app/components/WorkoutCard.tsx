@@ -51,16 +51,61 @@ keyExtractor={e=>e.id}
 renderItem={({item}) => <ExerciseRow exercise={item} />}
 />
 
-<View style={{marginTop:8}}>
-<TextInput placeholder="Exercise name" value={exerciseName} onChangeText={setExerciseName} style={styles.input} />
-<View style={styles.addSubRow}>
-<TextInput placeholder="kg" value={kg} onChangeText={setKg} style={[styles.inputSmall]} keyboardType="numeric" />
-<TextInput placeholder="sets" value={sets} onChangeText={setSets} style={[styles.inputSmall]} keyboardType="numeric" />
-<TextInput placeholder="reps" value={reps} onChangeText={setReps} style={[styles.inputSmall]} keyboardType="numeric" />
-<TextInput placeholder="YYYY-MM-DD" value={date} onChangeText={setDate} style={[styles.inputSmall]} />
-<TouchableOpacity onPress={addExercise} style={[styles.btn, {marginLeft:6}]}><Text style={styles.btnText}>Add</Text></TouchableOpacity>
+<View style={{ marginTop: 8 }}>
+  <TextInput
+    placeholder="Exercise name"
+    value={exerciseName}
+    onChangeText={setExerciseName}
+    style={styles.input}
+    placeholderTextColor="#999"
+
+  />
+
+  {/* Row 1 */}
+  <View style={styles.row}>
+    <TextInput
+      placeholder="kg"
+      value={kg}
+      onChangeText={setKg}
+      style={styles.inputSmall}
+      keyboardType="numeric"
+      placeholderTextColor="#999"
+
+    />
+    <TextInput
+      placeholder="sets"
+      value={sets}
+      onChangeText={setSets}
+      style={styles.inputSmall}
+      keyboardType="numeric"
+      placeholderTextColor="#999"
+
+    />
+    <TextInput
+      placeholder="reps"
+      value={reps}
+      onChangeText={setReps}
+      style={styles.inputSmall}
+      keyboardType="numeric"
+      placeholderTextColor="#999"
+
+    />
+  </View>
+
+  {/* Row 2 */}
+  <View style={styles.row}>
+    <TextInput
+      placeholder="YYYY-MM-DD"
+      value={date}
+      onChangeText={setDate}
+      style={[styles.input, { flex: 1 }]}
+    />
+    <TouchableOpacity onPress={addExercise} style={styles.btn}>
+      <Text style={styles.btnText}>Add</Text>
+    </TouchableOpacity>
+  </View>
 </View>
-</View>
+
 </View>
 );
 }
