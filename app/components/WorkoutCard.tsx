@@ -51,6 +51,20 @@ export default function WorkoutCard({
     save(buildUpdatedData(newLog));
   }
 
+  /** ✅ NEW: open Add/Edit with auto-fill */
+  function openAddModal() {
+    if (lastLog) {
+      setKg(String(lastLog.kg));
+      setSets(String(lastLog.sets));
+      setReps(String(lastLog.reps));
+    } else {
+      setKg('');
+      setSets('');
+      setReps('');
+    }
+    setOpen(true);
+  }
+
   function addManual() {
     if (!kg || !sets || !reps) {
       Alert.alert('Fill all fields');
@@ -90,7 +104,7 @@ export default function WorkoutCard({
           <Text style={styles.btnText}>REPEAT</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.addBtn} onPress={() => setOpen(!open)}>
+        <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
           <Text style={styles.btnText}>ADD / EDIT</Text>
         </TouchableOpacity>
       </View>
