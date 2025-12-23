@@ -1,77 +1,119 @@
-// screens/HomeScreen.tsx
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, View, Text, TextInput, TouchableOpacity, FlatList, Alert, StyleSheet, ScrollView } from 'react-native';
+import {
+  SafeAreaView,
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  Alert,
+  StyleSheet,
+  ScrollView,
+  Modal,
+  TextInput,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import WorkoutCard from '../components/WorkoutCard';
 
 const STORAGE_KEY = '@gymbro_data_v1';
 
-function uid(prefix = ''){ return prefix + Math.random().toString(36).slice(2,9); }
+function uid(prefix = '') {
+  return prefix + Math.random().toString(36).slice(2, 9);
+}
 
-export default function HomeScreen(){
+export default function HomeScreen() {
   const [data, setData] = useState({ days: [] });
-  const [selectedDayId, setSelectedDayId] = useState(null);
-  const [workoutName, setWorkoutName] = useState('');
+  const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
 
-  // ✅ derive selectedDay from data (IMPORTANT)
-  const selectedDay = data.days.find(d => d.id === selectedDayId) || null;
+  const selectedDay = data.days.find(d => d.id === selectedDayId);
 
-  useEffect(()=>{ load(); },[]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [kg, setKg] = useState('');
+  const [sets, setSets] = useState('');
+  const [reps, setReps] = useState('');
 
-  async function load(){
-    try{
-      const json = await AsyncStorage.getItem(STORAGE_KEY);
-      if(json) setData(JSON.parse(json));
-      else {
-        const initial = {
-          days: [
-            { id: 'day1', name: 'Day 1 - Push', workouts: [] },
-            { id: 'day2', name: 'Day 2 - Pull', workouts: [] },
-            { id: 'day3', name: 'Day 3 - Legs & Core', workouts: [] },
-          ]
-        };
-        setData(initial);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-      }
-    }catch(e){ console.warn(e); }
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function load() {
+    const json = await AsyncStorage.getItem(STORAGE_KEY);
+    if (json) {
+      setData(JSON.parse(json));
+    } else {
+      const initial = {
+        days: [
+          { id: 'day1', name: 'Day 1 - Push', workouts: [] },
+          { id: 'day2', name: 'Day 2 - Pull', workouts: [] },
+          { id: 'day3', name: 'Day 3 - Legs & Core', workouts: [] },
+        ],
+      };
+      setData(initial);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+    }
   }
 
-  async function save(newData){
+  async function save(newData) {
     setData(newData);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
   }
 
-  async function addWorkout(){
-    if(!selectedDay) return Alert.alert('Select a day first');
-    if(!workoutName.trim()) return Alert.alert('Workout name empty');
+  function addWorkoutWithLog() {
+    if (!selectedDayId) return;
+    if (!name || !kg || !sets || !reps) {
+      Alert.alert('Fill all fields');
+      return;
+    }
 
-    const newWorkout = { id: uid('w'), name: workoutName.trim(), logs: [] };
+    const workout = {
+      id: uid('w'),
+      name: name.trim(),
+      logs: [
+        {
+          id: uid('l'),
+          kg: Number(kg),
+          sets: Number(sets),
+          reps: Number(reps),
+          date: new Date().toISOString().slice(0, 10),
+        },
+      ],
+    };
 
     const newData = {
       ...data,
       days: data.days.map(d =>
-        d.id === selectedDay.id
-          ? { ...d, workouts: [...d.workouts, newWorkout] }
+        d.id === selectedDayId
+          ? { ...d, workouts: [...d.workouts, workout] }
           : d
-      )
+      ),
     };
 
-    setWorkoutName('');
-    await save(newData);
+    setName('');
+    setKg('');
+    setSets('');
+    setReps('');
+    setModalOpen(false);
+    save(newData);
   }
-
-  function exportText(){ return JSON.stringify(data, null, 2); }
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>GymBro — Starter</Text>
+      <Text style={styles.title}>GymBro</Text>
 
+      {/* Day selector */}
       <View style={styles.row}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex:1}}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingRight: 8 }}
+        >
           {data.days.map(d => (
             <TouchableOpacity
               key={d.id}
-              style={[styles.dayBtn, selectedDayId === d.id && styles.dayBtnActive]}
+              style={[
+                styles.dayBtn,
+                selectedDayId === d.id && styles.dayBtnActive,
+              ]}
               onPress={() => setSelectedDayId(d.id)}
             >
               <Text style={styles.dayText}>{d.name}</Text>
@@ -80,63 +122,139 @@ export default function HomeScreen(){
         </ScrollView>
       </View>
 
-      {selectedDay ? (
-        <View style={{flex:1}}>
-          <Text style={styles.header}>Selected: {selectedDay.name}</Text>
-
-          <View style={styles.addRow}>
-            <TextInput
-              placeholder="New workout name"
-              placeholderTextColor="#999"
-              value={workoutName}
-              onChangeText={setWorkoutName}
-              style={styles.input}
-            />
-            <TouchableOpacity onPress={addWorkout} style={styles.btn}>
-              <Text style={styles.btnText}>Add</Text>
-            </TouchableOpacity>
-          </View>
+      {!selectedDay ? (
+        <View style={styles.center}>
+          <Text>Select a day</Text>
+        </View>
+      ) : (
+        <>
+          <TouchableOpacity
+            style={styles.addWorkoutBtn}
+            onPress={() => setModalOpen(true)}
+          >
+            <Text style={styles.addWorkoutText}>＋ Add workout</Text>
+          </TouchableOpacity>
 
           <FlatList
             data={selectedDay.workouts}
-            keyExtractor={i=>i.id}
-            ListEmptyComponent={<Text style={{padding:10}}>No workouts yet</Text>}
-            renderItem={({item: workout}) => (
+            extraData={data}   // ⭐ forces instant UI update
+            keyExtractor={i => i.id}
+            renderItem={({ item }) => (
               <WorkoutCard
-                workout={workout}
-                selectedDay={selectedDay}
+                workout={item}
+                selectedDayId={selectedDayId}
                 data={data}
                 save={save}
               />
             )}
+            ListEmptyComponent={
+              <Text style={{ padding: 12 }}>No workouts yet</Text>
+            }
           />
-        </View>
-      ) : (
-        <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
-          <Text>Select a day to start</Text>
-        </View>
+        </>
       )}
 
-      <View style={{padding:6}}>
-        <TouchableOpacity onPress={()=>Alert.alert('Export data', exportText())} style={styles.exportBtn}>
-          <Text>Export JSON</Text>
-        </TouchableOpacity>
-      </View>
+      {/* MODAL */}
+      <Modal visible={modalOpen} animationType="slide" transparent>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modal}>
+            <Text style={styles.modalTitle}>Add workout</Text>
+
+            <TextInput
+              placeholder="Workout name"
+              placeholderTextColor="#999"
+              value={name}
+              onChangeText={setName}
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="kg"
+              placeholderTextColor="#999"
+              value={kg}
+              onChangeText={setKg}
+              keyboardType="numeric"
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="sets"
+              placeholderTextColor="#999"
+              value={sets}
+              onChangeText={setSets}
+              keyboardType="numeric"
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="reps"
+              placeholderTextColor="#999"
+              value={reps}
+              onChangeText={setReps}
+              keyboardType="numeric"
+              style={styles.input}
+            />
+
+            <TouchableOpacity style={styles.saveBtn} onPress={addWorkoutWithLog}>
+              <Text style={styles.saveText}>Save</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setModalOpen(false)}>
+              <Text style={styles.cancel}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1, backgroundColor:'#fff'},
-  title:{fontSize:20, fontWeight:'700', padding:12},
-  row:{flexDirection:'row', paddingHorizontal:8},
-  dayBtn:{padding:10, borderRadius:8, marginRight:8, backgroundColor:'#eee'},
-  dayBtnActive:{backgroundColor:'#cde'},
-  dayText:{fontWeight:'600'},
-  header:{fontSize:16, fontWeight:'700', padding:10},
-  addRow:{flexDirection:'row', padding:10, alignItems:'center'},
-  input:{flex:1, borderWidth:1, borderColor:'#ddd', padding:8, borderRadius:6, marginRight:8},
-  btn:{backgroundColor:'#007bff', padding:10, borderRadius:6},
-  btnText:{color:'#fff', fontWeight:'700'},
-  exportBtn:{alignSelf:'center', padding:8, borderWidth:1, borderColor:'#ddd', borderRadius:6}
+  container: { flex: 1, backgroundColor: '#fff' },
+  title: { fontSize: 20, fontWeight: '700', padding: 12 },
+
+  row: { paddingHorizontal: 8 },
+  dayBtn: {
+    padding: 10,
+    backgroundColor: '#eee',
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  dayBtnActive: { backgroundColor: '#cde' },
+  dayText: { fontWeight: '600' },
+
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  addWorkoutBtn: {
+    margin: 10,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#000',
+  },
+  addWorkoutText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+  },
+  modal: {
+    margin: 20,
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  saveBtn: {
+    backgroundColor: '#000',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 6,
+  },
+  saveText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
+  cancel: { textAlign: 'center', marginTop: 10, color: '#666' },
 });

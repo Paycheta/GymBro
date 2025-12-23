@@ -5,19 +5,24 @@ function uid(prefix = '') {
   return prefix + Math.random().toString(36).slice(2, 9);
 }
 
-export default function WorkoutCard({ workout, selectedDay, data, save }) {
+export default function WorkoutCard({
+  workout,
+  selectedDayId,
+  data,
+  save,
+}) {
   const [open, setOpen] = useState(false);
   const [kg, setKg] = useState('');
   const [sets, setSets] = useState('');
   const [reps, setReps] = useState('');
 
-  const lastLog = workout.logs?.[workout.logs.length - 1] || null;
+  const lastLog = workout.logs?.[workout.logs.length - 1];
 
   function buildUpdatedData(newLog) {
     return {
       ...data,
       days: data.days.map(day =>
-        day.id === selectedDay.id
+        day.id === selectedDayId
           ? {
               ...day,
               workouts: day.workouts.map(w =>
@@ -38,10 +43,8 @@ export default function WorkoutCard({ workout, selectedDay, data, save }) {
     }
 
     const newLog = {
+      ...lastLog,
       id: uid('l'),
-      kg: lastLog.kg,
-      sets: lastLog.sets,
-      reps: lastLog.reps,
       date: new Date().toISOString().slice(0, 10),
     };
 
@@ -62,11 +65,12 @@ export default function WorkoutCard({ workout, selectedDay, data, save }) {
       date: new Date().toISOString().slice(0, 10),
     };
 
-    save(buildUpdatedData(newLog));
     setKg('');
     setSets('');
     setReps('');
     setOpen(false);
+
+    save(buildUpdatedData(newLog));
   }
 
   return (
@@ -86,7 +90,7 @@ export default function WorkoutCard({ workout, selectedDay, data, save }) {
           <Text style={styles.btnText}>REPEAT</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.addBtn} onPress={() => setOpen(o => !o)}>
+        <TouchableOpacity style={styles.addBtn} onPress={() => setOpen(!open)}>
           <Text style={styles.btnText}>ADD / EDIT</Text>
         </TouchableOpacity>
       </View>
@@ -94,30 +98,29 @@ export default function WorkoutCard({ workout, selectedDay, data, save }) {
       {open && (
         <View style={styles.inputs}>
           <TextInput
+            placeholder="kg"
+            placeholderTextColor="#999"
             value={kg}
             onChangeText={setKg}
             keyboardType="numeric"
-            placeholder="kg"
-            placeholderTextColor="#999"
             style={styles.input}
           />
           <TextInput
+            placeholder="sets"
+            placeholderTextColor="#999"
             value={sets}
             onChangeText={setSets}
             keyboardType="numeric"
-            placeholder="sets"
-            placeholderTextColor="#999"
             style={styles.input}
           />
           <TextInput
+            placeholder="reps"
+            placeholderTextColor="#999"
             value={reps}
             onChangeText={setReps}
             keyboardType="numeric"
-            placeholder="reps"
-            placeholderTextColor="#999"
             style={styles.input}
           />
-
           <TouchableOpacity style={styles.saveBtn} onPress={addManual}>
             <Text style={styles.btnText}>SAVE</Text>
           </TouchableOpacity>
@@ -128,14 +131,43 @@ export default function WorkoutCard({ workout, selectedDay, data, save }) {
 }
 
 const styles = StyleSheet.create({
-  card: { padding: 12, borderRadius: 10, backgroundColor: '#fafafa', margin: 8, borderWidth: 1, borderColor: '#eee' },
+  card: {
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#fafafa',
+    margin: 8,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
   title: { fontSize: 16, fontWeight: '700' },
   last: { fontSize: 13, marginVertical: 6 },
   actions: { flexDirection: 'row', marginTop: 8 },
-  repeatBtn: { flex: 1, backgroundColor: '#28a745', padding: 10, borderRadius: 6, marginRight: 6 },
-  addBtn: { flex: 1, backgroundColor: '#007bff', padding: 10, borderRadius: 6 },
-  saveBtn: { backgroundColor: '#000', padding: 10, borderRadius: 6, marginTop: 6 },
+  repeatBtn: {
+    flex: 1,
+    backgroundColor: '#28a745',
+    padding: 10,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  addBtn: {
+    flex: 1,
+    backgroundColor: '#007bff',
+    padding: 10,
+    borderRadius: 6,
+  },
+  saveBtn: {
+    backgroundColor: '#000',
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 6,
+  },
   btnText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
   inputs: { marginTop: 10 },
-  input: { borderWidth: 1, borderColor: '#ddd', padding: 8, borderRadius: 6, marginBottom: 6 },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
 });
