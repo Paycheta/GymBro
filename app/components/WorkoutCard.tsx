@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  StyleSheet,
+  Alert,
+} from 'react-native';
 
 function uid(prefix = '') {
   return prefix + Math.random().toString(36).slice(2, 9);
@@ -16,9 +23,12 @@ export default function WorkoutCard({
   const [sets, setSets] = useState('');
   const [reps, setReps] = useState('');
 
-  const lastLog = workout.logs?.[workout.logs.length - 1];
+  const logs = workout.logs || [];
+  const lastLog = logs[logs.length - 1];
 
-  function buildUpdatedData(newLog) {
+  /* ---------- helpers ---------- */
+
+  function updateWorkout(updatedWorkout) {
     return {
       ...data,
       days: data.days.map(day =>
@@ -26,9 +36,7 @@ export default function WorkoutCard({
           ? {
               ...day,
               workouts: day.workouts.map(w =>
-                w.id === workout.id
-                  ? { ...w, logs: [...(w.logs || []), newLog] }
-                  : w
+                w.id === workout.id ? updatedWorkout : w
               ),
             }
           : day
@@ -36,9 +44,11 @@ export default function WorkoutCard({
     };
   }
 
+  /* ---------- repeat ---------- */
+
   function repeatWorkout() {
     if (!lastLog) {
-      Alert.alert('No previous data', 'Add the first workout first.');
+      Alert.alert('No previous data');
       return;
     }
 
@@ -48,19 +58,21 @@ export default function WorkoutCard({
       date: new Date().toISOString().slice(0, 10),
     };
 
-    save(buildUpdatedData(newLog));
+    save(
+      updateWorkout({
+        ...workout,
+        logs: [...logs, newLog],
+      })
+    );
   }
 
-  /** ✅ NEW: open Add/Edit with auto-fill */
-  function openAddModal() {
+  /* ---------- add / edit ---------- */
+
+  function openAddEdit() {
     if (lastLog) {
       setKg(String(lastLog.kg));
       setSets(String(lastLog.sets));
       setReps(String(lastLog.reps));
-    } else {
-      setKg('');
-      setSets('');
-      setReps('');
     }
     setOpen(true);
   }
@@ -84,27 +96,95 @@ export default function WorkoutCard({
     setReps('');
     setOpen(false);
 
-    save(buildUpdatedData(newLog));
+    save(
+      updateWorkout({
+        ...workout,
+        logs: [...logs, newLog],
+      })
+    );
+  }
+
+  /* ---------- delete last log ---------- */
+
+  function deleteLastLog() {
+    if (!lastLog) return;
+
+    Alert.alert(
+      'Delete last entry?',
+      `${lastLog.kg}kg × ${lastLog.sets} × ${lastLog.reps}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            save(
+              updateWorkout({
+                ...workout,
+                logs: logs.slice(0, -1),
+              })
+            );
+          },
+        },
+      ]
+    );
+  }
+
+  /* ---------- delete workout ---------- */
+
+  function deleteWorkout() {
+    Alert.alert(
+      'Delete workout?',
+      `Delete "${workout.name}" and all history?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            save({
+              ...data,
+              days: data.days.map(day =>
+                day.id === selectedDayId
+                  ? {
+                      ...day,
+                      workouts: day.workouts.filter(
+                        w => w.id !== workout.id
+                      ),
+                    }
+                  : day
+              ),
+            });
+          },
+        },
+      ]
+    );
   }
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{workout.name}</Text>
+      {/* WORKOUT TITLE — long press deletes workout */}
+      <TouchableOpacity onLongPress={deleteWorkout}>
+        <Text style={styles.title}>{workout.name}</Text>
+      </TouchableOpacity>
 
-      {lastLog ? (
-        <Text style={styles.last}>
-          Last: {lastLog.kg}kg × {lastLog.sets} × {lastLog.reps} ({lastLog.date})
-        </Text>
-      ) : (
-        <Text style={styles.last}>No data yet</Text>
-      )}
+      {/* LAST LOG — long press deletes last log */}
+      <TouchableOpacity onLongPress={deleteLastLog}>
+        {lastLog ? (
+          <Text style={styles.last}>
+            Last: {lastLog.kg}kg × {lastLog.sets} × {lastLog.reps} ({lastLog.date})
+          </Text>
+        ) : (
+          <Text style={styles.last}>No data yet</Text>
+        )}
+      </TouchableOpacity>
 
       <View style={styles.actions}>
         <TouchableOpacity style={styles.repeatBtn} onPress={repeatWorkout}>
           <Text style={styles.btnText}>REPEAT</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
+        <TouchableOpacity style={styles.addBtn} onPress={openAddEdit}>
           <Text style={styles.btnText}>ADD / EDIT</Text>
         </TouchableOpacity>
       </View>
