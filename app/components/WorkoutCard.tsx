@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   Image,
+  Modal,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -24,12 +25,12 @@ export default function WorkoutCard({
   const [kg, setKg] = useState('');
   const [sets, setSets] = useState('');
   const [reps, setReps] = useState('');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const logs = workout.logs || [];
   const lastLog = logs[logs.length - 1];
 
   /* ---------- helpers ---------- */
-
   function updateWorkout(updatedWorkout) {
     return {
       ...data,
@@ -47,7 +48,6 @@ export default function WorkoutCard({
   }
 
   /* ---------------- IMAGE PICKER ---------------- */
-
   async function pickImage() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
@@ -88,7 +88,6 @@ export default function WorkoutCard({
   }
 
   /* ---------- repeat ---------- */
-
   function repeatWorkout() {
     if (!lastLog) {
       Alert.alert('No previous data');
@@ -110,7 +109,6 @@ export default function WorkoutCard({
   }
 
   /* ---------- add / edit ---------- */
-
   function openAddEdit() {
     if (lastLog) {
       setKg(String(lastLog.kg));
@@ -148,7 +146,6 @@ export default function WorkoutCard({
   }
 
   /* ---------- delete last log ---------- */
-
   function deleteLastLog() {
     if (!lastLog) return;
 
@@ -174,7 +171,6 @@ export default function WorkoutCard({
   }
 
   /* ---------- delete workout ---------- */
-
   function deleteWorkout() {
     Alert.alert(
       'Delete workout?',
@@ -209,7 +205,10 @@ export default function WorkoutCard({
       {/* WORKOUT HEADER (image + title) */}
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         {workout.imageUri ? (
-          <TouchableOpacity onPress={pickImage}>
+          <TouchableOpacity
+            onPress={() => setPreviewImage(workout.imageUri)}
+            onLongPress={pickImage} // edit picture
+          >
             <Image source={{ uri: workout.imageUri }} style={styles.thumb} />
           </TouchableOpacity>
         ) : (
@@ -275,6 +274,23 @@ export default function WorkoutCard({
           </TouchableOpacity>
         </View>
       )}
+
+      {/* IMAGE PREVIEW MODAL */}
+      <Modal visible={!!previewImage} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.previewBackdrop}
+          activeOpacity={1}
+          onPress={() => setPreviewImage(null)}
+        >
+          {previewImage && (
+            <Image
+              source={{ uri: previewImage }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          )}
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -337,5 +353,18 @@ const styles = StyleSheet.create({
   addPhotoText: {
     fontSize: 22,
     fontWeight: '700',
+  },
+
+  /* preview modal */
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '70%',
+    height: '70%',
+    borderRadius: 10,
   },
 });
