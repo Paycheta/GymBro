@@ -10,8 +10,10 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import WorkoutCard from '../components/WorkoutCard';
 
 const STORAGE_KEY = '@gymbro_data_v1';
@@ -28,9 +30,7 @@ export default function HomeScreen() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState('');
-  const [kg, setKg] = useState('');
-  const [sets, setSets] = useState('');
-  const [reps, setReps] = useState('');
+  const [imageUri, setImageUri] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -58,25 +58,46 @@ export default function HomeScreen() {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
   }
 
-  function addWorkoutWithLog() {
+  /* ---------------- IMAGE PICKER ---------------- */
+  async function pickWorkoutImage() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Camera access is required.');
+      return;
+    }
+
+    Alert.alert('Add photo', 'Choose source', [
+      {
+        text: 'Camera',
+        onPress: async () => {
+          const result = await ImagePicker.launchCameraAsync({ quality: 0.5 });
+          if (!result.canceled) setImageUri(result.assets[0].uri);
+        },
+      },
+      {
+        text: 'Gallery',
+        onPress: async () => {
+          const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.5 });
+          if (!result.canceled) setImageUri(result.assets[0].uri);
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
+  /* ---------------- ADD WORKOUT (minimal) ---------------- */
+  function addWorkout() {
     if (!selectedDayId) return;
-    if (!name || !kg || !sets || !reps) {
-      Alert.alert('Fill all fields');
+    if (!name) {
+      Alert.alert('Workout name required');
       return;
     }
 
     const workout = {
       id: uid('w'),
       name: name.trim(),
-      logs: [
-        {
-          id: uid('l'),
-          kg: Number(kg),
-          sets: Number(sets),
-          reps: Number(reps),
-          date: new Date().toISOString().slice(0, 10),
-        },
-      ],
+      imageUri: imageUri ?? undefined,
+      logs: [],
     };
 
     const newData = {
@@ -89,9 +110,7 @@ export default function HomeScreen() {
     };
 
     setName('');
-    setKg('');
-    setSets('');
-    setReps('');
+    setImageUri(null);
     setModalOpen(false);
     save(newData);
   }
@@ -160,6 +179,18 @@ export default function HomeScreen() {
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>Add workout</Text>
 
+            {/* IMAGE PICKER */}
+            {imageUri ? (
+              <TouchableOpacity onPress={pickWorkoutImage}>
+                <Image source={{ uri: imageUri }} style={styles.thumb} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={pickWorkoutImage} style={styles.addPhoto}>
+                <Text style={styles.addPhotoText}>＋{"\n"}Add photo</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* WORKOUT NAME */}
             <TextInput
               placeholder="Workout name"
               placeholderTextColor="#999"
@@ -167,36 +198,12 @@ export default function HomeScreen() {
               onChangeText={setName}
               style={styles.input}
             />
-            <TextInput
-              placeholder="kg"
-              placeholderTextColor="#999"
-              value={kg}
-              onChangeText={setKg}
-              keyboardType="numeric"
-              style={styles.input}
-            />
-            <TextInput
-              placeholder="sets"
-              placeholderTextColor="#999"
-              value={sets}
-              onChangeText={setSets}
-              keyboardType="numeric"
-              style={styles.input}
-            />
-            <TextInput
-              placeholder="reps"
-              placeholderTextColor="#999"
-              value={reps}
-              onChangeText={setReps}
-              keyboardType="numeric"
-              style={styles.input}
-            />
 
-            <TouchableOpacity style={styles.saveBtn} onPress={addWorkoutWithLog}>
+            <TouchableOpacity style={styles.saveBtn} onPress={addWorkout}>
               <Text style={styles.saveText}>Save</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => setModalOpen(false)}>
+            <TouchableOpacity onPress={() => { setModalOpen(false); setImageUri(null); }}>
               <Text style={styles.cancel}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -257,4 +264,16 @@ const styles = StyleSheet.create({
   },
   saveText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
   cancel: { textAlign: 'center', marginTop: 10, color: '#666' },
+
+  addPhoto: {
+    width: 60,
+    height: 60,
+    borderRadius: 6,
+    backgroundColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  addPhotoText: { fontSize: 16, fontWeight: '700' },
+  thumb: { width: 60, height: 60, borderRadius: 6, marginBottom: 10 },
 });
