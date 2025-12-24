@@ -6,7 +6,9 @@ import {
   TextInput,
   StyleSheet,
   Alert,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 function uid(prefix = '') {
   return prefix + Math.random().toString(36).slice(2, 9);
@@ -42,6 +44,47 @@ export default function WorkoutCard({
           : day
       ),
     };
+  }
+
+  /* ---------------- IMAGE PICKER ---------------- */
+
+  async function pickImage() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Camera access is required.');
+      return;
+    }
+
+    Alert.alert('Add photo', 'Choose source', [
+      {
+        text: 'Camera',
+        onPress: async () => {
+          const result = await ImagePicker.launchCameraAsync({
+            quality: 0.5,
+          });
+          if (!result.canceled) saveImage(result.assets[0].uri);
+        },
+      },
+      {
+        text: 'Gallery',
+        onPress: async () => {
+          const result = await ImagePicker.launchImageLibraryAsync({
+            quality: 0.5,
+          });
+          if (!result.canceled) saveImage(result.assets[0].uri);
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
+  function saveImage(uri: string) {
+    save(
+      updateWorkout({
+        ...workout,
+        imageUri: uri,
+      })
+    );
   }
 
   /* ---------- repeat ---------- */
@@ -163,10 +206,22 @@ export default function WorkoutCard({
 
   return (
     <View style={styles.card}>
-      {/* WORKOUT TITLE — long press deletes workout */}
-      <TouchableOpacity onLongPress={deleteWorkout}>
-        <Text style={styles.title}>{workout.name}</Text>
-      </TouchableOpacity>
+      {/* WORKOUT HEADER (image + title) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {workout.imageUri ? (
+          <TouchableOpacity onPress={pickImage}>
+            <Image source={{ uri: workout.imageUri }} style={styles.thumb} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={pickImage} style={styles.addPhoto}>
+            <Text style={styles.addPhotoText}>＋</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity onLongPress={deleteWorkout}>
+          <Text style={styles.title}>{workout.name}</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* LAST LOG — long press deletes last log */}
       <TouchableOpacity onLongPress={deleteLastLog}>
@@ -233,7 +288,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
   },
-  title: { fontSize: 16, fontWeight: '700' },
+  title: { fontSize: 16, fontWeight: '700', marginLeft: 10 },
   last: { fontSize: 13, marginVertical: 6 },
   actions: { flexDirection: 'row', marginTop: 8 },
   repeatBtn: {
@@ -263,5 +318,24 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 6,
     marginBottom: 6,
+  },
+
+  /* picture styles */
+  thumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+  },
+  addPhoto: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    backgroundColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addPhotoText: {
+    fontSize: 22,
+    fontWeight: '700',
   },
 });
