@@ -5,15 +5,14 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
-  Alert,
-  StyleSheet,
-  ScrollView,
   Modal,
   TextInput,
-  Image,
+  StyleSheet,
+  Alert,
+  ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import WorkoutCard from '../components/WorkoutCard';
 
 const STORAGE_KEY = '@gymbro_data_v1';
@@ -23,257 +22,230 @@ function uid(prefix = '') {
 }
 
 export default function HomeScreen() {
-  const [data, setData] = useState({ days: [] });
+  const [data, setData] = useState<{ days: any[] }>({ days: [] });
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
-
-  const selectedDay = data.days.find(d => d.id === selectedDayId);
-
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState('');
-  const [imageUri, setImageUri] = useState<string | null>(null);
+
+  const hour = new Date().getHours();
+  const isDayMode = hour >= 6 && hour < 18;
 
   useEffect(() => {
     load();
   }, []);
 
   async function load() {
-    const json = await AsyncStorage.getItem(STORAGE_KEY);
-    if (json) {
-      setData(JSON.parse(json));
-    } else {
-      const initial = {
-        days: [
-          { id: 'day1', name: 'Day 1 - Push', workouts: [] },
-          { id: 'day2', name: 'Day 2 - Pull', workouts: [] },
-          { id: 'day3', name: 'Day 3 - Legs & Core', workouts: [] },
-        ],
-      };
-      setData(initial);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+    try {
+      const json = await AsyncStorage.getItem(STORAGE_KEY);
+      if (json) {
+        setData(JSON.parse(json));
+      } else {
+        const initial = {
+          days: [
+            { id: 'day1', name: 'Day 1 - Push', workouts: [] },
+            { id: 'day2', name: 'Day 2 - Pull', workouts: [] },
+            { id: 'day3', name: 'Day 3 - Legs & Core', workouts: [] },
+          ],
+        };
+        setData(initial);
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+      }
+    } catch (e) {
+      console.log('Error loading data', e);
     }
   }
 
-  async function save(newData) {
+  async function save(newData: any) {
     setData(newData);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-  }
-
-  /* ---------------- IMAGE PICKER ---------------- */
-  async function pickWorkoutImage() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Permission needed', 'Camera access is required.');
-      return;
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+    } catch (e) {
+      console.log('Error saving data', e);
     }
-
-    Alert.alert('Add photo', 'Choose source', [
-      {
-        text: 'Camera',
-        onPress: async () => {
-          const result = await ImagePicker.launchCameraAsync({ quality: 0.5 });
-          if (!result.canceled) setImageUri(result.assets[0].uri);
-        },
-      },
-      {
-        text: 'Gallery',
-        onPress: async () => {
-          const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.5 });
-          if (!result.canceled) setImageUri(result.assets[0].uri);
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
   }
 
-  /* ---------------- ADD WORKOUT (minimal) ---------------- */
+  const selectedDay = data.days.find(d => d.id === selectedDayId);
+
+  function getNextDayId() {
+    const daysWithLogs = data.days
+      .map(d => {
+        const lastLog = d.workouts
+          .flatMap(w => w.logs || [])
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+        return { dayId: d.id, lastDate: lastLog ? new Date(lastLog.date) : null };
+      })
+      .sort((a, b) => (b.lastDate ? b.lastDate.getTime() : 0) - (a.lastDate ? a.lastDate.getTime() : 0));
+
+    if (!daysWithLogs.length || !daysWithLogs[0].lastDate) return 'day1';
+
+    const lastDayIndex = data.days.findIndex(d => d.id === daysWithLogs[0].dayId);
+    return data.days[(lastDayIndex + 1) % data.days.length].id;
+  }
+
+  const nextDayId = getNextDayId();
+
   function addWorkout() {
-    if (!selectedDayId) return;
-    if (!name) {
-      Alert.alert('Workout name required');
+    if (!selectedDayId || !name.trim()) {
+      Alert.alert('Enter workout name');
       return;
     }
 
-    const workout = {
-      id: uid('w'),
-      name: name.trim(),
-      imageUri: imageUri ?? undefined,
-      logs: [],
-    };
-
+    const workout = { id: uid('w'), name: name.trim(), logs: [] };
     const newData = {
       ...data,
       days: data.days.map(d =>
-        d.id === selectedDayId
-          ? { ...d, workouts: [...d.workouts, workout] }
-          : d
+        d.id === selectedDayId ? { ...d, workouts: [...d.workouts, workout] } : d
       ),
     };
 
     setName('');
-    setImageUri(null);
     setModalOpen(false);
     save(newData);
   }
 
+  const dayTypeStyles = {
+    'Push': ['#ff7e5f', '#feb47b'],
+    'Pull': ['#6a11cb', '#2575fc'],
+    'Legs': ['#43cea2', '#185a9d'],
+  };
+
+  const getDayType = (dayName: string) => {
+    if (dayName.includes('Push')) return 'Push';
+    if (dayName.includes('Pull')) return 'Pull';
+    return 'Legs';
+  };
+
+  const getDayIcon = (dayName: string) => {
+    const type = getDayType(dayName);
+    if (type === 'Push') return '💪';
+    if (type === 'Pull') return '🏋️';
+    return '🦵';
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>GymBro</Text>
-
-      {/* Day selector */}
-      <View style={styles.row}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingRight: 8 }}
-        >
-          {data.days.map(d => (
-            <TouchableOpacity
-              key={d.id}
-              style={[
-                styles.dayBtn,
-                selectedDayId === d.id && styles.dayBtnActive,
-              ]}
-              onPress={() => setSelectedDayId(d.id)}
-            >
-              <Text style={styles.dayText}>{d.name}</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: isDayMode ? '#f0f4f8' : '#1e1e2f' }}>
+      <LinearGradient
+        colors={isDayMode ? ['#f0f4f8', '#e0ebf5'] : ['#1e1e2f', '#2a2a3d']}
+        style={styles.container}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          {selectedDayId && (
+            <TouchableOpacity onPress={() => setSelectedDayId(null)}>
+              <Text style={[styles.backArrow, { color: isDayMode ? '#222' : '#fff' }]}>←</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {!selectedDay ? (
-        <View style={styles.center}>
-          <Text>Select a day</Text>
-        </View>
-      ) : (
-        <>
-          <TouchableOpacity
-            style={styles.addWorkoutBtn}
-            onPress={() => setModalOpen(true)}
-          >
-            <Text style={styles.addWorkoutText}>＋ Add workout</Text>
+          )}
+          <TouchableOpacity onPress={() => setSelectedDayId(null)}>
+            <Text style={[styles.title, { color: isDayMode ? '#222' : '#fff' }]}>GymBro</Text>
           </TouchableOpacity>
-
-          <FlatList
-            data={selectedDay.workouts}
-            extraData={data}   // ⭐ forces instant UI update
-            keyExtractor={i => i.id}
-            renderItem={({ item }) => (
-              <WorkoutCard
-                workout={item}
-                selectedDayId={selectedDayId}
-                data={data}
-                save={save}
-              />
-            )}
-            ListEmptyComponent={
-              <Text style={{ padding: 12 }}>No workouts yet</Text>
-            }
-          />
-        </>
-      )}
-
-      {/* MODAL */}
-      <Modal visible={modalOpen} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modal}>
-            <Text style={styles.modalTitle}>Add workout</Text>
-
-            {/* IMAGE PICKER */}
-            {imageUri ? (
-              <TouchableOpacity onPress={pickWorkoutImage}>
-                <Image source={{ uri: imageUri }} style={styles.thumb} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={pickWorkoutImage} style={styles.addPhoto}>
-                <Text style={styles.addPhotoText}>＋{"\n"}Add photo</Text>
-              </TouchableOpacity>
-            )}
-
-            {/* WORKOUT NAME */}
-            <TextInput
-              placeholder="Workout name"
-              placeholderTextColor="#999"
-              value={name}
-              onChangeText={setName}
-              style={styles.input}
-            />
-
-            <TouchableOpacity style={styles.saveBtn} onPress={addWorkout}>
-              <Text style={styles.saveText}>Save</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => { setModalOpen(false); setImageUri(null); }}>
-              <Text style={styles.cancel}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
         </View>
-      </Modal>
+
+        {/* Main content */}
+        {!selectedDayId ? (
+          <ScrollView contentContainerStyle={styles.daysContainer}>
+            <Text style={[styles.greeting, { color: isDayMode ? '#222' : '#fff' }]}>
+              {isDayMode ? 'Good Morning, Pavle!' : 'Good Evening, Pavle!'}
+            </Text>
+            {data.days.map(d => {
+              const type = getDayType(d.name);
+              const gradientColors = dayTypeStyles[type];
+              return (
+                <TouchableOpacity key={d.id} onPress={() => setSelectedDayId(d.id)}>
+                  <LinearGradient
+                    colors={gradientColors}
+                    style={[styles.dayCard, nextDayId === d.id ? styles.dayCardNext : {}]}
+                  >
+                    <Text style={styles.dayText}>{getDayIcon(d.name)} {d.name}</Text>
+                    <Text style={styles.workoutCount}>{d.workouts.length} workout{d.workouts.length !== 1 ? 's' : ''}</Text>
+                    {nextDayId === d.id && <Text style={styles.nextBadge}>Next Up</Text>}
+                  </LinearGradient>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        ) : (
+          <View style={{ flex: 1, paddingHorizontal: 16 }}>
+            <TouchableOpacity style={styles.addWorkoutBtn} onPress={() => setModalOpen(true)}>
+              <Text style={styles.addWorkoutText}>＋ Add workout</Text>
+            </TouchableOpacity>
+
+            <FlatList
+              data={selectedDay?.workouts || []}
+              extraData={data}
+              keyExtractor={i => i.id}
+              renderItem={({ item }) => (
+                <WorkoutCard workout={item} selectedDayId={selectedDayId} data={data} save={save} />
+              )}
+              ListEmptyComponent={<Text style={{ padding: 12, color: isDayMode ? '#222' : '#fff' }}>No workouts yet</Text>}
+              contentContainerStyle={{ paddingBottom: 80 }}
+            />
+          </View>
+        )}
+
+        {/* Modal */}
+        <Modal visible={modalOpen} animationType="slide" transparent>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modal}>
+              <Text style={styles.modalTitle}>Add workout</Text>
+              <TextInput
+                placeholder="Workout name"
+                placeholderTextColor="#999"
+                value={name}
+                onChangeText={setName}
+                style={styles.input}
+              />
+              <TouchableOpacity style={styles.saveBtn} onPress={addWorkout}>
+                <Text style={styles.saveText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setModalOpen(false)}>
+                <Text style={styles.cancel}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </LinearGradient>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  title: { fontSize: 20, fontWeight: '700', padding: 12 },
-
-  row: { paddingHorizontal: 8 },
-  dayBtn: {
-    padding: 10,
-    backgroundColor: '#eee',
-    borderRadius: 8,
-    marginRight: 8,
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 36, // safe below notch
+    paddingBottom: 8,
+    paddingHorizontal: 16,
+    zIndex: 10,
   },
-  dayBtnActive: { backgroundColor: '#cde' },
-  dayText: { fontWeight: '600' },
+  backArrow: { fontSize: 20, marginRight: 8 },
+  title: { fontSize: 26, fontWeight: '700' },
+  greeting: { fontSize: 20, fontWeight: '600', marginBottom: 16, paddingHorizontal: 4 },
 
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  addWorkoutBtn: {
-    margin: 10,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#000',
+  daysContainer: { paddingTop: 20 },
+  dayCard: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
+  dayCardNext: { borderWidth: 2, borderColor: '#fff' },
+  dayText: { color: '#fff', fontWeight: '700', fontSize: 18 },
+  workoutCount: { color: '#fff', marginTop: 4 },
+  nextBadge: { marginTop: 8, fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  addWorkoutBtn: { marginVertical: 12, padding: 12, borderRadius: 8, backgroundColor: '#000' },
   addWorkoutText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
 
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-  },
-  modal: {
-    margin: 20,
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-  },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center' },
+  modal: { margin: 20, padding: 16, backgroundColor: '#fff', borderRadius: 12 },
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  saveBtn: {
-    backgroundColor: '#000',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 6,
-  },
+  input: { borderWidth: 1, borderColor: '#ddd', padding: 10, borderRadius: 8, marginBottom: 12 },
+  saveBtn: { backgroundColor: '#000', padding: 12, borderRadius: 8 },
   saveText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
   cancel: { textAlign: 'center', marginTop: 10, color: '#666' },
-
-  addPhoto: {
-    width: 60,
-    height: 60,
-    borderRadius: 6,
-    backgroundColor: '#ddd',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  addPhotoText: { fontSize: 16, fontWeight: '700' },
-  thumb: { width: 60, height: 60, borderRadius: 6, marginBottom: 10 },
 });
