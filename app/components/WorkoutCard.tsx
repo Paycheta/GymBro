@@ -1,48 +1,49 @@
-import React, { useState } from 'react';
+import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import React, { useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  StyleSheet,
   Alert,
   Image,
   Modal,
-} from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-function uid(prefix = '') {
+function uid(prefix = "") {
   return prefix + Math.random().toString(36).slice(2, 9);
 }
 
-export default function WorkoutCard({
-  workout,
-  selectedDayId,
-  data,
-  save,
-}) {
+export default function WorkoutCard({ workout, selectedDayId, data, save }) {
   const [open, setOpen] = useState(false);
-  const [kg, setKg] = useState('');
-  const [sets, setSets] = useState('');
-  const [reps, setReps] = useState('');
+  const [kg, setKg] = useState("");
+  const [sets, setSets] = useState("");
+  const [reps, setReps] = useState("");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [animate, setAnimate] = useState(false);
+
+  const today = new Date().toISOString().slice(0, 10);
 
   const logs = workout.logs || [];
   const lastLog = logs[logs.length - 1];
+
+  const isCompletedToday = workout.logs?.some((l: any) => l.date === today);
 
   /* ---------- helpers ---------- */
   function updateWorkout(updatedWorkout) {
     return {
       ...data,
-      days: data.days.map(day =>
+      days: data.days.map((day) =>
         day.id === selectedDayId
           ? {
               ...day,
-              workouts: day.workouts.map(w =>
-                w.id === workout.id ? updatedWorkout : w
+              workouts: day.workouts.map((w) =>
+                w.id === workout.id ? updatedWorkout : w,
               ),
             }
-          : day
+          : day,
       ),
     };
   }
@@ -51,30 +52,36 @@ export default function WorkoutCard({
   async function pickImage() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Camera access is required.');
+      Alert.alert("Permission needed", "Camera access is required.");
       return;
     }
 
-    Alert.alert('Add photo', 'Choose source', [
+    Alert.alert("Add photo", "Choose source", [
       {
-        text: 'Camera',
+        text: "Camera",
         onPress: async () => {
           const result = await ImagePicker.launchCameraAsync({
             quality: 0.5,
           });
-          if (!result.canceled) saveImage(result.assets[0].uri);
+          if (!result.canceled && result.assets?.length > 0) {
+            const uri = result.assets[0].uri;
+            saveImage(uri);
+          }
         },
       },
       {
-        text: 'Gallery',
+        text: "Gallery",
         onPress: async () => {
           const result = await ImagePicker.launchImageLibraryAsync({
             quality: 0.5,
           });
-          if (!result.canceled) saveImage(result.assets[0].uri);
+          if (!result.canceled && result.assets?.length > 0) {
+            const uri = result.assets[0].uri;
+            saveImage(uri);
+          }
         },
       },
-      { text: 'Cancel', style: 'cancel' },
+      { text: "Cancel", style: "cancel" },
     ]);
   }
 
@@ -83,20 +90,20 @@ export default function WorkoutCard({
       updateWorkout({
         ...workout,
         imageUri: uri,
-      })
+      }),
     );
   }
 
   /* ---------- repeat ---------- */
   function repeatWorkout() {
     if (!lastLog) {
-      Alert.alert('No previous data');
+      Alert.alert("No previous data");
       return;
     }
 
     const newLog = {
       ...lastLog,
-      id: uid('l'),
+      id: uid("l"),
       date: new Date().toISOString().slice(0, 10),
     };
 
@@ -104,8 +111,9 @@ export default function WorkoutCard({
       updateWorkout({
         ...workout,
         logs: [...logs, newLog],
-      })
+      }),
     );
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
   /* ---------- add / edit ---------- */
@@ -120,29 +128,36 @@ export default function WorkoutCard({
 
   function addManual() {
     if (!kg || !sets || !reps) {
-      Alert.alert('Fill all fields');
+      Alert.alert("Fill all fields");
       return;
     }
 
     const newLog = {
-      id: uid('l'),
+      id: uid("l"),
       kg: Number(kg),
       sets: Number(sets),
       reps: Number(reps),
       date: new Date().toISOString().slice(0, 10),
     };
 
-    setKg('');
-    setSets('');
-    setReps('');
+    setKg("");
+    setSets("");
+    setReps("");
     setOpen(false);
 
     save(
       updateWorkout({
         ...workout,
         logs: [...logs, newLog],
-      })
+      }),
     );
+    setAnimate(true);
+    setTimeout(() => setAnimate(false), 300);
+    setTimeout(() => {
+      if (isCompletedToday) return;
+      // small visual delay so state updates first
+    }, 50);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
   /* ---------- delete last log ---------- */
@@ -150,60 +165,64 @@ export default function WorkoutCard({
     if (!lastLog) return;
 
     Alert.alert(
-      'Delete last entry?',
+      "Delete last entry?",
       `${lastLog.kg}kg × ${lastLog.sets} × ${lastLog.reps}`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: () => {
             save(
               updateWorkout({
                 ...workout,
                 logs: logs.slice(0, -1),
-              })
+              }),
             );
           },
         },
-      ]
+      ],
     );
   }
 
   /* ---------- delete workout ---------- */
   function deleteWorkout() {
     Alert.alert(
-      'Delete workout?',
+      "Delete workout?",
       `Delete "${workout.name}" and all history?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: () => {
             save({
               ...data,
-              days: data.days.map(day =>
+              days: data.days.map((day) =>
                 day.id === selectedDayId
                   ? {
                       ...day,
-                      workouts: day.workouts.filter(
-                        w => w.id !== workout.id
-                      ),
+                      workouts: day.workouts.filter((w) => w.id !== workout.id),
                     }
-                  : day
+                  : day,
               ),
             });
           },
         },
-      ]
+      ],
     );
   }
 
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        isCompletedToday && styles.cardDone,
+        animate && styles.cardPop,
+      ]}
+    >
       {/* WORKOUT HEADER (image + title) */}
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
         {workout.imageUri ? (
           <TouchableOpacity
             onPress={() => setPreviewImage(workout.imageUri)}
@@ -218,21 +237,23 @@ export default function WorkoutCard({
         )}
 
         <TouchableOpacity onLongPress={deleteWorkout}>
-          <Text style={styles.title}>{workout.name}</Text>
+          <Text style={styles.title}>
+            {isCompletedToday ? "✅ " : ""}
+            {String(workout.name ?? "")}
+          </Text>
         </TouchableOpacity>
       </View>
-
       {/* LAST LOG — long press deletes last log */}
       <TouchableOpacity onLongPress={deleteLastLog}>
         {lastLog ? (
           <Text style={styles.last}>
-            Last: {lastLog.kg}kg × {lastLog.sets} × {lastLog.reps} ({lastLog.date})
+            Last: {lastLog.kg}kg × {lastLog.sets} × {lastLog.reps} (
+            {lastLog.date})
           </Text>
         ) : (
           <Text style={styles.last}>No data yet</Text>
         )}
       </TouchableOpacity>
-
       <View style={styles.actions}>
         <TouchableOpacity style={styles.repeatBtn} onPress={repeatWorkout}>
           <Text style={styles.btnText}>REPEAT</Text>
@@ -242,7 +263,6 @@ export default function WorkoutCard({
           <Text style={styles.btnText}>ADD / EDIT</Text>
         </TouchableOpacity>
       </View>
-
       {open && (
         <View style={styles.inputs}>
           <TextInput
@@ -274,7 +294,6 @@ export default function WorkoutCard({
           </TouchableOpacity>
         </View>
       )}
-
       {/* IMAGE PREVIEW MODAL */}
       <Modal visible={!!previewImage} transparent animationType="fade">
         <TouchableOpacity
@@ -299,38 +318,38 @@ const styles = StyleSheet.create({
   card: {
     padding: 12,
     borderRadius: 10,
-    backgroundColor: '#fafafa',
+    backgroundColor: "#fafafa",
     margin: 8,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: "#eee",
   },
-  title: { fontSize: 16, fontWeight: '700', marginLeft: 10 },
+  title: { fontSize: 16, fontWeight: "700", marginLeft: 10 },
   last: { fontSize: 13, marginVertical: 6 },
-  actions: { flexDirection: 'row', marginTop: 8 },
+  actions: { flexDirection: "row", marginTop: 8 },
   repeatBtn: {
     flex: 1,
-    backgroundColor: '#28a745',
+    backgroundColor: "#28a745",
     padding: 10,
     borderRadius: 6,
     marginRight: 6,
   },
   addBtn: {
     flex: 1,
-    backgroundColor: '#007bff',
+    backgroundColor: "#007bff",
     padding: 10,
     borderRadius: 6,
   },
   saveBtn: {
-    backgroundColor: '#000',
+    backgroundColor: "#000",
     padding: 10,
     borderRadius: 6,
     marginTop: 6,
   },
-  btnText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
+  btnText: { color: "#fff", fontWeight: "700", textAlign: "center" },
   inputs: { marginTop: 10 },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     padding: 8,
     borderRadius: 6,
     marginBottom: 6,
@@ -346,25 +365,33 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 6,
-    backgroundColor: '#ddd',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#ddd",
+    justifyContent: "center",
+    alignItems: "center",
   },
   addPhotoText: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 
   /* preview modal */
   previewBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   previewImage: {
-    width: '70%',
-    height: '70%',
+    width: "70%",
+    height: "70%",
     borderRadius: 10,
+  },
+  cardDone: {
+    borderColor: "#28a745",
+    borderWidth: 2,
+    backgroundColor: "#f3fff5",
+  },
+  cardPop: {
+    transform: [{ scale: 1.02 }],
   },
 });
