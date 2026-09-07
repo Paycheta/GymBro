@@ -3,8 +3,14 @@
     "version": ">= 3.0.0"
   },
   "build": {
-    "development": {},
-    "preview": {},
-    "production": {}
+    "development": {
+      "channel": "development"
+    },
+    "preview": {
+      "channel": "preview"
+    },
+    "production": {
+      "channel": "production"
+    }
   }
 }

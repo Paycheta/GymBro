@@ -1,3 +1,4 @@
+import * as FileSystem from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
@@ -50,34 +51,48 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
 
   /* ---------------- IMAGE PICKER ---------------- */
   async function pickImage() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permission needed", "Camera access is required.");
-      return;
-    }
-
     Alert.alert("Add photo", "Choose source", [
       {
         text: "Camera",
         onPress: async () => {
+          const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+          if (!permission.granted) {
+            Alert.alert("Permission needed", "Camera access is required.");
+            return;
+          }
+
           const result = await ImagePicker.launchCameraAsync({
             quality: 0.5,
           });
+
           if (!result.canceled && result.assets?.length > 0) {
             const uri = result.assets[0].uri;
-            saveImage(uri);
+            await saveImage(uri);
           }
         },
       },
       {
         text: "Gallery",
         onPress: async () => {
+          const permission =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+          if (!permission.granted) {
+            Alert.alert(
+              "Permission needed",
+              "Photo library access is required.",
+            );
+            return;
+          }
+
           const result = await ImagePicker.launchImageLibraryAsync({
             quality: 0.5,
           });
+
           if (!result.canceled && result.assets?.length > 0) {
             const uri = result.assets[0].uri;
-            saveImage(uri);
+            await saveImage(uri);
           }
         },
       },
@@ -85,13 +100,36 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
     ]);
   }
 
-  function saveImage(uri: string) {
-    save(
-      updateWorkout({
-        ...workout,
-        imageUri: uri,
-      }),
-    );
+  /* ---------------- SAVE IMAGE PERMANENTLY ---------------- */
+  async function saveImage(uri: string) {
+    try {
+      if (!FileSystem.documentDirectory) {
+        Alert.alert("Error", "Could not access app storage.");
+        return;
+      }
+
+      const extension =
+        uri.split(".").pop()?.split("?")[0].toLowerCase() || "jpg";
+
+      const fileName = `workout_${workout.id}_${Date.now()}.${extension}`;
+
+      const destination = `${FileSystem.documentDirectory}${fileName}`;
+
+      await FileSystem.copyAsync({
+        from: uri,
+        to: destination,
+      });
+
+      save(
+        updateWorkout({
+          ...workout,
+          imageUri: destination,
+        }),
+      );
+    } catch (error) {
+      console.log("Error saving image:", error);
+      Alert.alert("Error", "Could not save the image.");
+    }
   }
 
   /* ---------- repeat ---------- */
@@ -113,6 +151,7 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
         logs: [...logs, newLog],
       }),
     );
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
@@ -123,6 +162,7 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
       setSets(String(lastLog.sets));
       setReps(String(lastLog.reps));
     }
+
     setOpen(true);
   }
 
@@ -151,12 +191,16 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
         logs: [...logs, newLog],
       }),
     );
+
     setAnimate(true);
+
     setTimeout(() => setAnimate(false), 300);
+
     setTimeout(() => {
       if (isCompletedToday) return;
       // small visual delay so state updates first
     }, 50);
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
@@ -226,7 +270,7 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
         {workout.imageUri ? (
           <TouchableOpacity
             onPress={() => setPreviewImage(workout.imageUri)}
-            onLongPress={pickImage} // edit picture
+            onLongPress={pickImage}
           >
             <Image source={{ uri: workout.imageUri }} style={styles.thumb} />
           </TouchableOpacity>
@@ -243,6 +287,7 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
           </Text>
         </TouchableOpacity>
       </View>
+
       {/* LAST LOG — long press deletes last log */}
       <TouchableOpacity onLongPress={deleteLastLog}>
         {lastLog ? (
@@ -254,6 +299,7 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
           <Text style={styles.last}>No data yet</Text>
         )}
       </TouchableOpacity>
+
       <View style={styles.actions}>
         <TouchableOpacity style={styles.repeatBtn} onPress={repeatWorkout}>
           <Text style={styles.btnText}>REPEAT</Text>
@@ -263,6 +309,7 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
           <Text style={styles.btnText}>ADD / EDIT</Text>
         </TouchableOpacity>
       </View>
+
       {open && (
         <View style={styles.inputs}>
           <TextInput
@@ -273,6 +320,7 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
             keyboardType="numeric"
             style={styles.input}
           />
+
           <TextInput
             placeholder="sets"
             placeholderTextColor="#999"
@@ -281,6 +329,7 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
             keyboardType="numeric"
             style={styles.input}
           />
+
           <TextInput
             placeholder="reps"
             placeholderTextColor="#999"
@@ -289,11 +338,13 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
             keyboardType="numeric"
             style={styles.input}
           />
+
           <TouchableOpacity style={styles.saveBtn} onPress={addManual}>
             <Text style={styles.btnText}>SAVE</Text>
           </TouchableOpacity>
         </View>
       )}
+
       {/* IMAGE PREVIEW MODAL */}
       <Modal visible={!!previewImage} transparent animationType="fade">
         <TouchableOpacity
@@ -323,9 +374,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
   },
-  title: { fontSize: 16, fontWeight: "700", marginLeft: 10 },
-  last: { fontSize: 13, marginVertical: 6 },
-  actions: { flexDirection: "row", marginTop: 8 },
+
+  title: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginLeft: 10,
+  },
+
+  last: {
+    fontSize: 13,
+    marginVertical: 6,
+  },
+
+  actions: {
+    flexDirection: "row",
+    marginTop: 8,
+  },
+
   repeatBtn: {
     flex: 1,
     backgroundColor: "#28a745",
@@ -333,20 +398,31 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginRight: 6,
   },
+
   addBtn: {
     flex: 1,
     backgroundColor: "#007bff",
     padding: 10,
     borderRadius: 6,
   },
+
   saveBtn: {
     backgroundColor: "#000",
     padding: 10,
     borderRadius: 6,
     marginTop: 6,
   },
-  btnText: { color: "#fff", fontWeight: "700", textAlign: "center" },
-  inputs: { marginTop: 10 },
+
+  btnText: {
+    color: "#fff",
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  inputs: {
+    marginTop: 10,
+  },
+
   input: {
     borderWidth: 1,
     borderColor: "#ddd",
@@ -361,6 +437,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 6,
   },
+
   addPhoto: {
     width: 44,
     height: 44,
@@ -369,6 +446,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   addPhotoText: {
     fontSize: 22,
     fontWeight: "700",
@@ -381,16 +459,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   previewImage: {
     width: "70%",
     height: "70%",
     borderRadius: 10,
   },
+
   cardDone: {
     borderColor: "#28a745",
     borderWidth: 2,
     backgroundColor: "#f3fff5",
   },
+
   cardPop: {
     transform: [{ scale: 1.02 }],
   },
