@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -37,6 +37,7 @@ export default function HomeScreen() {
   async function load() {
     try {
       const json = await AsyncStorage.getItem(STORAGE_KEY);
+      console.log("GYMBRO STORAGE:", json);
       if (json) {
         setData(JSON.parse(json));
       } else {
