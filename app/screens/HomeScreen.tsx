@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { exerciseLibrary } from "../../data/exerciseLibrary";
 import WorkoutCard from "../components/WorkoutCard";
 
 const STORAGE_KEY = "@gymbro_data_v1";
@@ -25,7 +26,10 @@ export default function HomeScreen() {
   const [data, setData] = useState<{ days: any[] }>({ days: [] });
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"menu" | "library" | "custom">("menu");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [search, setSearch] = useState("");
 
   const hour = new Date().getHours();
   const isDayMode = hour >= 6 && hour < 18;
@@ -37,7 +41,6 @@ export default function HomeScreen() {
   async function load() {
     try {
       const json = await AsyncStorage.getItem(STORAGE_KEY);
-      console.log("GYMBRO STORAGE:", json);
       if (json) {
         setData(JSON.parse(json));
       } else {
@@ -114,6 +117,37 @@ export default function HomeScreen() {
 
     setName("");
     setModalOpen(false);
+    save(newData);
+  }
+
+  function addLibraryWorkout(exercise: any) {
+    if (!selectedDayId) return;
+
+    const workout = {
+      id: uid("w"),
+      exerciseId: exercise.id,
+      name: exercise.name,
+      muscleGroup: exercise.muscleGroup,
+      equipment: exercise.equipment,
+      logs: [],
+    };
+
+    const newData = {
+      ...data,
+      days: data.days.map((d) =>
+        d.id === selectedDayId
+          ? {
+              ...d,
+              workouts: [...d.workouts, workout],
+            }
+          : d,
+      ),
+    };
+
+    setModalOpen(false);
+    setAddMode("menu");
+    setSearch("");
+
     save(newData);
   }
 
@@ -232,9 +266,12 @@ export default function HomeScreen() {
           <View style={{ flex: 1, paddingHorizontal: 16 }}>
             <TouchableOpacity
               style={styles.addWorkoutBtn}
-              onPress={() => setModalOpen(true)}
+              onPress={() => {
+                setAddMode("menu");
+                setModalOpen(true);
+              }}
             >
-              <Text style={styles.addWorkoutText}>＋ Add workout</Text>
+              <Text style={styles.addWorkoutText}>＋ Add exercise</Text>
             </TouchableOpacity>
 
             <FlatList
@@ -262,23 +299,171 @@ export default function HomeScreen() {
         )}
 
         {/* Modal */}
+        {/* ADD EXERCISE MODAL */}
         <Modal visible={modalOpen} animationType="slide" transparent>
           <View style={styles.modalBackdrop}>
             <View style={styles.modal}>
-              <Text style={styles.modalTitle}>Add workout</Text>
-              <TextInput
-                placeholder="Workout name"
-                placeholderTextColor="#999"
-                value={name}
-                onChangeText={setName}
-                style={styles.input}
-              />
-              <TouchableOpacity style={styles.saveBtn} onPress={addWorkout}>
-                <Text style={styles.saveText}>Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setModalOpen(false)}>
-                <Text style={styles.cancel}>Cancel</Text>
-              </TouchableOpacity>
+              {/* MAIN MENU */}
+              {addMode === "menu" && (
+                <>
+                  <Text style={styles.modalTitle}>Add Exercise</Text>
+
+                  <TouchableOpacity
+                    style={styles.libraryBtn}
+                    onPress={() => {
+                      setSelectedCategory(null);
+                      setAddMode("library");
+                    }}
+                  >
+                    <Text style={styles.optionTitle}>🏋️ Exercise Library</Text>
+
+                    <Text style={styles.optionSubtitle}>
+                      Choose a predefined exercise
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.customBtn}
+                    onPress={() => setAddMode("custom")}
+                  >
+                    <Text style={styles.optionTitle}>✏️ Custom Exercise</Text>
+
+                    <Text style={styles.optionSubtitle}>
+                      Create your own exercise
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      setModalOpen(false);
+                      setAddMode("menu");
+                    }}
+                  >
+                    <Text style={styles.cancel}>Cancel</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* EXERCISE LIBRARY */}
+              {addMode === "library" && (
+                <>
+                  <Text style={styles.modalTitle}>Exercise Library</Text>
+
+                  {!selectedCategory ? (
+                    <>
+                      {[
+                        "Bryst",
+                        "Rygg",
+                        "Skuldre",
+                        "Armer",
+                        "Bein",
+                        "Kjerne",
+                      ].map((category) => (
+                        <TouchableOpacity
+                          key={category}
+                          style={styles.categoryBtn}
+                          onPress={() => setSelectedCategory(category)}
+                        >
+                          <Text style={styles.categoryTitle}>
+                            {category === "Bryst" && "🫁 "}
+                            {category === "Rygg" && "🏋️ "}
+                            {category === "Skuldre" && "💪 "}
+                            {category === "Armer" && "💪 "}
+                            {category === "Bein" && "🦵 "}
+                            {category === "Kjerne" && "🔥 "}
+                            {category}
+                          </Text>
+
+                          <Text style={styles.categoryCount}>
+                            {
+                              exerciseLibrary.filter(
+                                (exercise) => exercise.category === category,
+                              ).length
+                            }{" "}
+                            exercises
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+
+                      <TouchableOpacity onPress={() => setAddMode("menu")}>
+                        <Text style={styles.cancel}>← Back</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.categoryHeader}>
+                        {selectedCategory}
+                      </Text>
+
+                      <TextInput
+                        placeholder={`Search in ${selectedCategory}...`}
+                        placeholderTextColor="#999"
+                        value={search}
+                        onChangeText={setSearch}
+                        style={styles.input}
+                      />
+
+                      <ScrollView style={{ maxHeight: 380 }}>
+                        {exerciseLibrary
+                          .filter(
+                            (exercise) =>
+                              exercise.category === selectedCategory &&
+                              exercise.name
+                                .toLowerCase()
+                                .includes(search.toLowerCase()),
+                          )
+                          .map((exercise) => (
+                            <TouchableOpacity
+                              key={exercise.id}
+                              style={styles.exerciseItem}
+                              onPress={() => addLibraryWorkout(exercise)}
+                            >
+                              <Text style={styles.exerciseName}>
+                                {exercise.name}
+                              </Text>
+
+                              <Text style={styles.exerciseInfo}>
+                                {exercise.muscleGroup} • {exercise.equipment}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                      </ScrollView>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          setSelectedCategory(null);
+                          setSearch("");
+                        }}
+                      >
+                        <Text style={styles.cancel}>← Categories</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* CUSTOM EXERCISE */}
+              {addMode === "custom" && (
+                <>
+                  <Text style={styles.modalTitle}>Custom Exercise</Text>
+
+                  <TextInput
+                    placeholder="Exercise name"
+                    placeholderTextColor="#999"
+                    value={name}
+                    onChangeText={setName}
+                    style={styles.input}
+                  />
+
+                  <TouchableOpacity style={styles.saveBtn} onPress={addWorkout}>
+                    <Text style={styles.saveText}>Save</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => setAddMode("menu")}>
+                    <Text style={styles.cancel}>← Back</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
         </Modal>
@@ -422,9 +607,74 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  libraryBtn: {
+    padding: 16,
+    backgroundColor: "#f0f4ff",
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+
+  customBtn: {
+    padding: 16,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+
+  optionSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    color: "#666",
+  },
+
+  exerciseItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+
+  exerciseName: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  exerciseInfo: {
+    marginTop: 3,
+    color: "#777",
+    fontSize: 13,
+  },
   cancel: {
     textAlign: "center",
     marginTop: 10,
     color: "#666",
+  },
+
+  categoryBtn: {
+    padding: 16,
+    borderRadius: 10,
+    backgroundColor: "#f5f5f5",
+    marginBottom: 10,
+  },
+
+  categoryTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+  },
+
+  categoryCount: {
+    marginTop: 4,
+    color: "#777",
+    fontSize: 13,
+  },
+
+  categoryHeader: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 10,
   },
 });

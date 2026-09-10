@@ -1,7 +1,7 @@
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   Image,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { exerciseLibrary } from "../../data/exerciseLibrary";
 
 function uid(prefix = "") {
   return prefix + Math.random().toString(36).slice(2, 9);
@@ -22,13 +23,18 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
   const [kg, setKg] = useState("");
   const [sets, setSets] = useState("");
   const [reps, setReps] = useState("");
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<any>(null);
   const [animate, setAnimate] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
 
   const logs = workout.logs || [];
   const lastLog = logs[logs.length - 1];
+  const libraryExercise = exerciseLibrary.find(
+    (exercise) => exercise.id === workout.exerciseId,
+  );
+
+  const libraryImage = libraryExercise?.image;
 
   const isCompletedToday = workout.logs?.some((l: any) => l.date === today);
 
@@ -196,11 +202,6 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
 
     setTimeout(() => setAnimate(false), 300);
 
-    setTimeout(() => {
-      if (isCompletedToday) return;
-      // small visual delay so state updates first
-    }, 50);
-
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
@@ -273,6 +274,17 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
             onLongPress={pickImage}
           >
             <Image source={{ uri: workout.imageUri }} style={styles.thumb} />
+          </TouchableOpacity>
+        ) : libraryImage ? (
+          <TouchableOpacity
+            onPress={() => setPreviewImage(libraryImage)}
+            onLongPress={pickImage}
+          >
+            <Image
+              source={libraryImage}
+              style={styles.thumb}
+              resizeMode="cover"
+            />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={pickImage} style={styles.addPhoto}>
@@ -354,7 +366,11 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
         >
           {previewImage && (
             <Image
-              source={{ uri: previewImage }}
+              source={
+                typeof previewImage === "string"
+                  ? { uri: previewImage }
+                  : previewImage
+              }
               style={styles.previewImage}
               resizeMode="contain"
             />
