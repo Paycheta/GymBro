@@ -1,10 +1,11 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import {
   Alert,
-  Image,
+  //Image,
   Modal,
   StyleSheet,
   Text,
@@ -283,7 +284,7 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
             <Image
               source={libraryImage}
               style={styles.thumb}
-              resizeMode="cover"
+              contentFit="cover"
             />
           </TouchableOpacity>
         ) : (
@@ -372,7 +373,8 @@ export default function WorkoutCard({ workout, selectedDayId, data, save }) {
                   : previewImage
               }
               style={styles.previewImage}
-              resizeMode="contain"
+              contentFit="contain"
+              cachePolicy="none"
             />
           )}
         </TouchableOpacity>
