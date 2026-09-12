@@ -276,7 +276,7 @@ export default function HomeScreen() {
 
             <FlatList
               data={selectedDay?.workouts || []}
-              extraData={data}
+              //extraData={data}
               keyExtractor={(i) => i.id}
               renderItem={({ item }) => (
                 <WorkoutCard
